@@ -1,24 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stronghold Tracker
+
+A Next.js application for tracking stronghold reset times using Upstash Redis for data storage.
+
+## Features
+
+- Track stronghold reset times with countdown timers
+- Add new strongholds with custom duration settings
+- Toggle between server time (UTC-2) and local time
+- Real-time countdown updates
+- Delete completed or unwanted strongholds
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+1. Create an Upstash Redis database at [https://upstash.com/](https://upstash.com/)
+2. Get your Redis REST URL and token from the Upstash dashboard
+
+### Environment Setup
+
+Create a `.env.local` file in the root directory with the following variables:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+UPSTASH_REDIS_REST_URL=your_redis_rest_url_here
+UPSTASH_REDIS_REST_TOKEN=your_redis_rest_token_here
+```
+
+### Installation
+
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Run the development server:
+
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Migration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project has been migrated from SQLite to Upstash Redis for better scalability and cloud deployment. The migration includes:
+
+- Replaced `better-sqlite3` with `@upstash/redis`
+- Updated all database functions to be async
+- Changed event IDs from numbers to strings
+- Implemented Redis sorted sets for efficient ordering by ready time
+- Added proper error handling for Redis operations
+- Uses composite keys (warzone:coordinate_x:coordinate_y) to prevent duplicate entries for the same location
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Learn More
 
