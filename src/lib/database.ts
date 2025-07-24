@@ -112,6 +112,65 @@ export async function deleteEvent(id: string): Promise<boolean> {
   }
 }
 
+export async function updateEventDuration(
+  id: string, 
+  duration_days: number, 
+  duration_hours: number, 
+  duration_minutes: number, 
+  duration_seconds: number
+): Promise<boolean> {
+  try {
+    // Get existing event data
+    const eventData = await redis.hgetall(`event:${id}`) as unknown as Event
+    if (!eventData) {
+      return false
+    }
+
+    // Calculate new ready_at time based on created_at and new duration
+    const createdAt =  new Date() //new Date(eventData.created_at)
+    const newReadyAt = new Date(createdAt)
+
+    // Add the new duration to the created_at time
+    newReadyAt.setDate(newReadyAt.getDate() + duration_days)
+    newReadyAt.setHours(newReadyAt.getHours() + duration_hours)
+    newReadyAt.setMinutes(newReadyAt.getMinutes() + duration_minutes)
+    newReadyAt.setSeconds(newReadyAt.getSeconds() + duration_seconds)
+
+    // Update event with new duration and ready_at
+    const updatedEvent: Event = {
+      ...eventData,
+      duration_days,
+      duration_hours,
+      duration_minutes,
+      duration_seconds,
+      ready_at: newReadyAt.toISOString(),
+    }
+
+    // Update event data in hash
+    await redis.hset(`event:${id}`, updatedEvent as unknown as Record<string, unknown>)
+    
+    // Update sorted set with new ready_at timestamp
+    await redis.zadd(EVENTS_KEY, {
+      score: newReadyAt.getTime(),
+      member: id
+    })
+
+    return true
+  } catch (error) {
+    console.error('Failed to update event duration:', error)
+    return false
+  }
+}
+
+export async function resetEvent(id: string): Promise<boolean> {
+  try {
+    // Update the event duration by 36 hours (1 day and 12 hours)
+    return await updateEventDuration(id, 1, 12, 0, 0)
+  } catch (error) {
+    console.error('Failed to reset event:', error)
+    return false
+  }
+}
 
 
 export default redis

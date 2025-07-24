@@ -11,17 +11,35 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { WarzoneInput } from "@/components/warzone-input"
 import { createEvent } from "@/lib/actions"
-import { Plus, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
+
+interface Event {
+  id: string
+  warzone: number
+  coordinate_x: number
+  coordinate_y: number
+  duration_days: number
+  duration_hours: number
+  duration_minutes: number
+  duration_seconds: number
+  created_at: string
+  ready_at: string
+}
 
 interface AddEventModalProps {
   isOpen: boolean
   onClose: () => void
   onEventCreated?: () => void
+  events: Event[]
 }
 
-export function AddEventModal({ isOpen, onClose, onEventCreated }: AddEventModalProps) {
+export function AddEventModal({ isOpen, onClose, onEventCreated, events }: AddEventModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Extract unique warzones from events
+  const warzones = events.map(event => event.warzone)
 
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true)
@@ -53,10 +71,14 @@ export function AddEventModal({ isOpen, onClose, onEventCreated }: AddEventModal
         
         <form id="add-event-modal-form" action={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="warzone">Warzone</Label>
-              <Input id="warzone" name="warzone" type="number" required placeholder="e.g., 1" disabled={isSubmitting} />
-            </div>
+            <WarzoneInput 
+              id="warzone" 
+              name="warzone" 
+              required 
+              placeholder="e.g., 1" 
+              disabled={isSubmitting}
+              warzones={warzones}
+            />
             <div>
               <Label htmlFor="coordinate_x">X Coordinate</Label>
               <Input id="coordinate_x" name="coordinate_x" type="number" required placeholder="e.g., 100" disabled={isSubmitting} />

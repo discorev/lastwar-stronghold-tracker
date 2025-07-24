@@ -104,6 +104,7 @@ export default function HomePage() {
                     event={event} 
                     useServerTime={useServerTime} 
                     onEventDeleted={handleEventCreated}
+                    onEventReset={handleEventCreated}
                   />
                 ))}
               </div>
@@ -117,6 +118,7 @@ export default function HomePage() {
         isOpen={isModalOpen} 
         onClose={closeModal} 
         onEventCreated={handleEventCreated} 
+        events={events}
       />
     </div>
   )

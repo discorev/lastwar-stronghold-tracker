@@ -1,6 +1,6 @@
 "use server"
 
-import { addEvent, getAllEvents, deleteEvent, type NewEvent } from "./database"
+import { addEvent, getAllEvents, deleteEvent, resetEvent, updateEventDuration, type NewEvent } from "./database"
 import { revalidatePath } from "next/cache"
 
 export async function createEvent(formData: FormData) {
@@ -57,5 +57,41 @@ export async function getEvents() {
   } catch (error) {
     console.error("Error fetching events:", error)
     return []
+  }
+}
+
+export async function resetEventAction(id: string) {
+  try {
+    const success = await resetEvent(id)
+    if (success) {
+      revalidatePath("/")
+      return { success: true }
+    } else {
+      throw new Error("Event not found")
+    }
+  } catch (error) {
+    console.error("Error resetting event:", error)
+    throw new Error("Failed to reset event")
+  }
+}
+
+export async function updateEventDurationAction(
+  id: string,
+  duration_days: number,
+  duration_hours: number,
+  duration_minutes: number,
+  duration_seconds: number
+) {
+  try {
+    const success = await updateEventDuration(id, duration_days, duration_hours, duration_minutes, duration_seconds)
+    if (success) {
+      revalidatePath("/")
+      return { success: true }
+    } else {
+      throw new Error("Event not found")
+    }
+  } catch (error) {
+    console.error("Error updating event duration:", error)
+    throw new Error("Failed to update event duration")
   }
 }

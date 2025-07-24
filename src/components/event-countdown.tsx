@@ -4,8 +4,20 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, MapPin, Clock } from "lucide-react"
-import { removeEvent } from "@/lib/actions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Trash2, MapPin, Clock, Edit3 } from "lucide-react"
+import { removeEvent, resetEventAction } from "@/lib/actions"
+import { EditDurationModal } from "@/components/edit-duration-modal"
 
 interface Event {
   id: string
@@ -24,19 +36,24 @@ interface EventCountdownProps {
   event: Event
   useServerTime: boolean
   onEventDeleted?: () => void
+  onEventReset?: () => void
 }
 
-export function EventCountdown({ event, useServerTime, onEventDeleted }: EventCountdownProps) {
+export function EventCountdown({ event, useServerTime, onEventDeleted, onEventReset }: EventCountdownProps) {
   const [timeLeft, setTimeLeft] = useState<string>("")
   const [isReady, setIsReady] = useState(false)
   const [isWarning, setIsWarning] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date()
       const readyTime = new Date(event.ready_at)
-      const timeDiff = readyTime.getTime() - now.getTime()
+      // Calculate the time difference in seconds and round down to the nearest second
+      const timeDiff = Math.floor((readyTime.getTime() - now.getTime()) / 1000) * 1000
 
       if (timeDiff <= 0) {
         setTimeLeft("Ready!")
@@ -51,8 +68,8 @@ export function EventCountdown({ event, useServerTime, onEventDeleted }: EventCo
       const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
 
       // Check if less than 5 minutes remaining
-      const totalMinutes = days * 24 * 60 + hours * 60 + minutes
-      setIsWarning(totalMinutes < 5 && totalMinutes > 0)
+      const totalRemaining = days * 24 * 60 * 60 + hours * 60 * 60 + minutes * 60 + seconds
+      setIsWarning(totalRemaining < 5 * 60 && totalRemaining > 0)
 
       // Format time left based on remaining duration
       if (days > 0) {
@@ -113,61 +130,142 @@ export function EventCountdown({ event, useServerTime, onEventDeleted }: EventCo
     }
   }
 
+  const handleReset = async () => {
+    if (isResetting) return // Prevent multiple clicks
+    
+    setIsResetting(true)
+    try {      
+      // Call the reset action
+      await resetEventAction(event.id)
+      
+      // Notify parent component to refresh events
+      onEventReset?.()
+    } catch (error) {
+      console.error("Failed to reset event:", error)
+      alert("Failed to reset event. Please try again.")
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  const handleDurationUpdated = () => {
+    // Notify parent component to refresh events
+    onEventReset?.()
+  }
+
   return (
-    <Card className={`transition-colors ${
-      isReady ? "border-green-500 bg-green-50" : 
-      isWarning ? "border-amber-500 bg-amber-50" : ""
-    }`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">
-            [Warzone #{event.warzone} X: {event.coordinate_x} Y: {event.coordinate_y}]
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+    <>
+      <Card className={`transition-colors ${
+        isReady ? "border-green-500 bg-green-50" : 
+        isWarning ? "border-amber-500 bg-amber-50" : ""
+      }`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              [WZ #{event.warzone} X: {event.coordinate_x} Y: {event.coordinate_y}]
+            </CardTitle>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Event</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this event? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="bg-red-500 hover:bg-red-600 text-white"
+                  >
+                    {isDeleting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Deleting...
+                      </div>
+                    ) : (
+                      "Delete"
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4" />
+            <span>
+              Coordinates: ({event.coordinate_x}, {event.coordinate_y})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>
+              Duration: {event.duration_days}d {event.duration_hours}h {event.duration_minutes}m {event.duration_seconds}s
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => setIsEditModalOpen(true)}
+            >
+              <Edit3 className="h-3 w-3" />
+            </Button>
+          </div>
+
+          <div
+            className={`text-2xl font-bold text-center p-4 rounded-lg transition-all duration-200 ${
+              isReady ? "text-green-600 bg-green-100" : 
+              isWarning ? "text-amber-600 bg-amber-100" : 
+              "text-blue-600 bg-blue-50"
+            } ${
+              isReady && isHovering ? "cursor-pointer bg-green-200 hover:bg-green-300" : ""
+            }`}
+            onMouseEnter={() => isReady && setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+            onClick={isReady ? handleReset : undefined}
           >
-            {isDeleting ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+            {isReady && isHovering ? (
+              <div className="flex items-center justify-center gap-2">
+                {isResetting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+                    Resetting...
+                  </>
+                ) : (
+                  "Click to Reset"
+                )}
+              </div>
             ) : (
-              <Trash2 className="h-4 w-4" />
+              timeLeft
             )}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <span>
-            Coordinates: ({event.coordinate_x}, {event.coordinate_y})
-          </span>
-        </div>
+          </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span>
-            Duration: {event.duration_days}d {event.duration_hours}h {event.duration_minutes}m {event.duration_seconds}s
-          </span>
-        </div>
+          <div className="text-sm text-center text-muted-foreground">
+            <div>Ready at: {formatTimestamp(event.ready_at)}</div>
+            <div className="text-xs mt-1">Created: {formatTimestamp(event.created_at)}</div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <div
-          className={`text-2xl font-bold text-center p-4 rounded-lg ${
-            isReady ? "text-green-600 bg-green-100" : 
-            isWarning ? "text-amber-600 bg-amber-100" : 
-            "text-blue-600 bg-blue-50"
-          }`}
-        >
-          {timeLeft}
-        </div>
-
-        <div className="text-sm text-center text-muted-foreground">
-          <div>Ready at: {formatTimestamp(event.ready_at)}</div>
-          <div className="text-xs mt-1">Created: {formatTimestamp(event.created_at)}</div>
-        </div>
-      </CardContent>
-    </Card>
+      <EditDurationModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onDurationUpdated={handleDurationUpdated}
+        event={event}
+      />
+    </>
   )
 }
