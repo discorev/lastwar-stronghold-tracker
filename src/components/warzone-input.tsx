@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChevronDown } from "lucide-react"
 
 interface WarzoneInputProps {
   id: string
@@ -14,13 +13,13 @@ interface WarzoneInputProps {
   warzones: number[]
 }
 
-export function WarzoneInput({ 
-  id, 
-  name, 
-  required = false, 
-  placeholder = "e.g., 1", 
+export function WarzoneInput({
+  id,
+  name,
+  required = false,
+  placeholder = "e.g., 1",
   disabled = false,
-  warzones 
+  warzones
 }: WarzoneInputProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -30,9 +29,9 @@ export function WarzoneInput({
 
   // Get unique warzones sorted numerically
   const uniqueWarzones = [...new Set(warzones)].sort((a, b) => a - b)
-  
+
   // Filter warzones based on input value
-  const filteredWarzones = uniqueWarzones.filter(warzone => 
+  const filteredWarzones = uniqueWarzones.filter(warzone =>
     warzone.toString().includes(inputValue)
   )
 
@@ -53,7 +52,7 @@ export function WarzoneInput({
     const value = e.target.value
     setInputValue(value)
     setSelectedIndex(-1)
-    
+
     if (value === "") {
       setIsDropdownOpen(uniqueWarzones.length > 0)
     } else {
@@ -85,13 +84,13 @@ export function WarzoneInput({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex(prev => 
+        setSelectedIndex(prev =>
           prev < filteredWarzones.length - 1 ? prev + 1 : 0
         )
         break
       case 'ArrowUp':
         e.preventDefault()
-        setSelectedIndex(prev => 
+        setSelectedIndex(prev =>
           prev > 0 ? prev - 1 : filteredWarzones.length - 1
         )
         break
@@ -121,12 +120,12 @@ export function WarzoneInput({
     setInputValue(warzone.toString())
     setIsDropdownOpen(false)
     setSelectedIndex(-1)
-    
+
     // Update the input value for form submission
     if (inputRef.current) {
       inputRef.current.value = warzone.toString()
     }
-    
+
     // Move focus to next field after a short delay
     setTimeout(() => {
       const nextInput = inputRef.current?.closest('form')?.querySelector('input[name="coordinate_x"]') as HTMLInputElement
@@ -164,7 +163,7 @@ export function WarzoneInput({
           onKeyDown={handleKeyDown}
         />
       </div>
-      
+
       {isDropdownOpen && filteredWarzones.length > 0 && (
         <div
           ref={dropdownRef}
@@ -178,11 +177,10 @@ export function WarzoneInput({
               <button
                 key={warzone}
                 type="button"
-                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                  index === selectedIndex 
-                    ? 'bg-accent text-accent-foreground' 
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${index === selectedIndex
+                    ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground'
-                } focus:outline-none`}
+                  } focus:outline-none`}
                 onClick={() => handleWarzoneSelect(warzone)}
                 onMouseEnter={() => setSelectedIndex(index)}
               >

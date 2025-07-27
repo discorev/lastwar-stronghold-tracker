@@ -11,30 +11,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { updateEventDurationAction } from "@/lib/actions"
+import { updateStrongholdDurationAction } from "@/lib/actions"
+import { Stronghold } from "@/lib/types"
 import { Loader2 } from "lucide-react"
-
-interface Event {
-  id: string
-  warzone: number
-  coordinate_x: number
-  coordinate_y: number
-  duration_days: number
-  duration_hours: number
-  duration_minutes: number
-  duration_seconds: number
-  created_at: string
-  ready_at: string
-}
 
 interface EditDurationModalProps {
   isOpen: boolean
   onClose: () => void
   onDurationUpdated?: () => void
-  event: Event
+  stronghold: Stronghold
 }
 
-export function EditDurationModal({ isOpen, onClose, onDurationUpdated, event }: EditDurationModalProps) {
+export function EditDurationModal({ isOpen, onClose, onDurationUpdated, stronghold }: EditDurationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [durationDays, setDurationDays] = useState("0")
   const [durationHours, setDurationHours] = useState("0")
@@ -45,7 +33,7 @@ export function EditDurationModal({ isOpen, onClose, onDurationUpdated, event }:
   useEffect(() => {
     if (isOpen) {
       const now = new Date()
-      const readyTime = new Date(event.ready_at)
+      const readyTime = new Date(stronghold.ready_at)
       const timeDiff = Math.floor((readyTime.getTime() - now.getTime()) / 1000) * 1000
 
       if (timeDiff > 0) {
@@ -66,28 +54,28 @@ export function EditDurationModal({ isOpen, onClose, onDurationUpdated, event }:
         setDurationSeconds("0")
       }
     }
-  }, [isOpen, event.ready_at])
+  }, [isOpen, stronghold.ready_at])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
+
     try {
-      await updateEventDurationAction(
-        event.id,
+      await updateStrongholdDurationAction(
+        stronghold.id,
         parseInt(durationDays) || 0,
         parseInt(durationHours) || 0,
         parseInt(durationMinutes) || 0,
         parseInt(durationSeconds) || 0
       )
-      
-      // Notify parent component to refresh events
+
+      // Notify parent component to refresh strongholds
       onDurationUpdated?.()
       // Close modal
       onClose()
     } catch (error) {
-      console.error("Error updating event duration:", error)
-      alert("Failed to update event duration. Please try again.")
+      console.error("Error updating stronghold duration:", error)
+      alert("Failed to update stronghold duration. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -105,10 +93,17 @@ export function EditDurationModal({ isOpen, onClose, onDurationUpdated, event }:
             Edit Duration
           </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="text-sm text-muted-foreground">
-            <p>Warzone #{event.warzone} - Coordinates: ({event.coordinate_x}, {event.coordinate_y})</p>
+            <p>Warzone #{stronghold.warzone} - Coordinates: ({stronghold.coordinate_x}, {stronghold.coordinate_y})</p>
+            {(stronghold.level || stronghold.alliance_name) && (
+              <p className="mt-1">
+                {stronghold.level && <span className="font-medium">Level {stronghold.level}</span>}
+                {stronghold.level && stronghold.alliance_name && <span className="mx-2">•</span>}
+                {stronghold.alliance_name && <span className="font-medium">{stronghold.alliance_name}</span>}
+              </p>
+            )}
           </div>
 
           <div>
@@ -118,14 +113,14 @@ export function EditDurationModal({ isOpen, onClose, onDurationUpdated, event }:
                 <Label htmlFor="duration_days" className="text-sm">
                   Days
                 </Label>
-                <Input 
-                  id="duration_days" 
-                  type="number" 
-                  min="0" 
+                <Input
+                  id="duration_days"
+                  type="number"
+                  min="0"
                   value={durationDays}
                   onChange={(e) => setDurationDays(e.target.value)}
-                  placeholder="0" 
-                  disabled={isSubmitting} 
+                  placeholder="0"
+                  disabled={isSubmitting}
                 />
               </div>
               <div>

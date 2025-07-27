@@ -1,54 +1,47 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { EventCountdown } from "@/components/event-countdown"
-import { AddEventModal } from "@/components/add-event-modal"
+import { StrongholdDetail } from "@/components/stronghold-detail"
+import { AddStrongholdModal } from "@/components/add-stronghold-modal"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { TimezoneToggle } from "@/components/timezone-toggle"
-import { getEvents } from "@/lib/actions"
+import { getStrongholds } from "@/lib/actions"
+import { Stronghold } from "@/lib/types"
 import { Calendar, Target } from "lucide-react"
 
-interface Event {
-  id: string
-  warzone: number
-  coordinate_x: number
-  coordinate_y: number
-  duration_days: number
-  duration_hours: number
-  duration_minutes: number
-  duration_seconds: number
-  created_at: string
-  ready_at: string
-}
-
 export default function HomePage() {
-  const [events, setEvents] = useState<Event[]>([])
+  const [strongholds, setStrongholds] = useState<Stronghold[]>([])
   const [useServerTime, setUseServerTime] = useState(true)
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const fetchEvents = async () => {
+  const fetchStrongholds = async () => {
     try {
-      const fetchedEvents = await getEvents()
-      setEvents(fetchedEvents)
+      const fetchedStrongholds = await getStrongholds()
+      setStrongholds(fetchedStrongholds)
     } catch (error) {
-      console.error("Error fetching events:", error)
+      console.error("Error fetching strongholds:", error)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchEvents()
+    fetchStrongholds()
 
-    // Refresh events every 30 seconds
-    const interval = setInterval(fetchEvents, 30000)
+    // Refresh strongholds every 30 seconds
+    const interval = setInterval(fetchStrongholds, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const handleEventCreated = () => {
-    // Refresh events immediately after a new event is created
-    fetchEvents()
+  const handleStrongholdCreated = () => {
+    // Refresh strongholds immediately after a new stronghold is created
+    fetchStrongholds()
+  }
+
+  const handleStrongholdReset = () => {
+    // Refresh strongholds after a reset or duration update
+    fetchStrongholds()
   }
 
   const openModal = () => {
@@ -87,10 +80,10 @@ export default function HomePage() {
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold flex items-center gap-2">
               <Calendar className="h-6 w-6" />
-              Tracked Strongholds ({events.length})
+              Tracked Strongholds ({strongholds.length})
             </h2>
 
-            {events.length === 0 ? (
+            {strongholds.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="text-lg">No strongholds tracked yet</p>
@@ -98,28 +91,29 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {events.map((event) => (
-                  <EventCountdown 
-                    key={event.id} 
-                    event={event} 
-                    useServerTime={useServerTime} 
-                    onEventDeleted={handleEventCreated}
-                    onEventReset={handleEventCreated}
+                {strongholds.map((stronghold) => (
+                  <StrongholdDetail
+                    key={stronghold.id}
+                    stronghold={stronghold}
+                    useServerTime={useServerTime}
+                    onStrongholdDeleted={fetchStrongholds}
+                    onStrongholdReset={handleStrongholdReset}
                   />
                 ))}
               </div>
             )}
           </div>
         </div>
-      </div>
 
-      <FloatingActionButton onClick={openModal} />
-      <AddEventModal 
-        isOpen={isModalOpen} 
-        onClose={closeModal} 
-        onEventCreated={handleEventCreated} 
-        events={events}
-      />
+        <FloatingActionButton onClick={openModal} />
+
+        <AddStrongholdModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onStrongholdCreated={handleStrongholdCreated}
+          strongholds={strongholds}
+        />
+      </div>
     </div>
   )
 }

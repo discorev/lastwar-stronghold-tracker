@@ -12,49 +12,67 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { WarzoneInput } from "@/components/warzone-input"
-import { createEvent } from "@/lib/actions"
+import { createStronghold } from "@/lib/actions"
+import { Stronghold, StrongholdBase } from "@/lib/types"
 import { Loader2 } from "lucide-react"
 
-interface Event {
-  id: string
-  warzone: number
-  coordinate_x: number
-  coordinate_y: number
-  duration_days: number
-  duration_hours: number
-  duration_minutes: number
-  duration_seconds: number
-  created_at: string
-  ready_at: string
-}
-
-interface AddEventModalProps {
+interface AddStrongholdModalProps {
   isOpen: boolean
   onClose: () => void
-  onEventCreated?: () => void
-  events: Event[]
+  onStrongholdCreated?: () => void
+  strongholds: Stronghold[]
 }
 
-export function AddEventModal({ isOpen, onClose, onEventCreated, events }: AddEventModalProps) {
+export function AddStrongholdModal({ isOpen, onClose, onStrongholdCreated, strongholds }: AddStrongholdModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Extract unique warzones from events
-  const warzones = events.map(event => event.warzone)
+  // Extract unique warzones from strongholds
+  const warzones = strongholds.map(stronghold => stronghold.warzone)
 
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true)
     try {
-      await createEvent(formData)
+      const warzone = Number.parseInt(formData.get("warzone") as string)
+      const coordinate_x = Number.parseInt(formData.get("coordinate_x") as string)
+      const coordinate_y = Number.parseInt(formData.get("coordinate_y") as string)
+      const duration_days = Number.parseInt(formData.get("duration_days") as string) || 0
+      const duration_hours = Number.parseInt(formData.get("duration_hours") as string) || 0
+      const duration_minutes = Number.parseInt(formData.get("duration_minutes") as string) || 0
+      const duration_seconds = Number.parseInt(formData.get("duration_seconds") as string) || 0
+      const level = formData.get("level") ? Number.parseInt(formData.get("level") as string) : undefined
+      const alliance_name = formData.get("alliance_name") as string || undefined
+
+      if (isNaN(warzone) || isNaN(coordinate_x) || isNaN(coordinate_y)) {
+        throw new Error("Invalid input: Warzone and coordinates must be valid integers")
+      }
+
+      if (level === undefined || (isNaN(level) || level < 1 || level > 10)) {
+        throw new Error("Invalid input: Level must be between 1 and 10")
+      }
+
+      const stronghold: StrongholdBase = {
+        warzone,
+        coordinate_x,
+        coordinate_y,
+        duration_days,
+        duration_hours,
+        duration_minutes,
+        duration_seconds,
+        level,
+        alliance_name,
+      }
+
+      await createStronghold(stronghold)
       // Reset form
-      const form = document.getElementById("add-event-modal-form") as HTMLFormElement
+      const form = document.getElementById("add-sh-modal-form") as HTMLFormElement
       form?.reset()
-      // Notify parent component to refresh events
-      onEventCreated?.()
+      // Notify parent component to refresh strongholds
+      onStrongholdCreated?.()
       // Close modal
       onClose()
     } catch (error) {
-      console.error("Error creating event:", error)
-      alert("Failed to create event. Please try again.")
+      console.error("Error creating stronghold:", error)
+      alert("Failed to create stronghold. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -68,14 +86,14 @@ export function AddEventModal({ isOpen, onClose, onEventCreated, events }: AddEv
             Add New Stronghold
           </DialogTitle>
         </DialogHeader>
-        
-        <form id="add-event-modal-form" action={handleSubmit} className="space-y-4">
+
+        <form id="add-sh-modal-form" action={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <WarzoneInput 
-              id="warzone" 
-              name="warzone" 
-              required 
-              placeholder="e.g., 1" 
+            <WarzoneInput
+              id="warzone"
+              name="warzone"
+              required
+              placeholder="e.g., 1"
               disabled={isSubmitting}
               warzones={warzones}
             />
@@ -89,8 +107,34 @@ export function AddEventModal({ isOpen, onClose, onEventCreated, events }: AddEv
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="level">Level</Label>
+              <Input
+                id="level"
+                name="level"
+                type="number"
+                min="1"
+                max="10"
+                placeholder="1-10"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+            <div>
+              <Label htmlFor="alliance_name">Alliance Name (Optional)</Label>
+              <Input
+                id="alliance_name"
+                name="alliance_name"
+                type="text"
+                placeholder="e.g., MyAlliance"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
           <div>
-            <Label className="text-base font-medium">Duration</Label>
+            <Label className="text-base font-medium">Time until reset</Label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
               <div>
                 <Label htmlFor="duration_days" className="text-sm">

@@ -1,81 +1,60 @@
 "use server"
 
-import { addEvent, getAllEvents, deleteEvent, resetEvent, updateEventDuration, type NewEvent } from "./database"
+import { addStronghold, getAllStrongholds, deleteStronghold, resetStrongholdTimer, updateStrongholdDuration, updateStronghold } from "./database"
+import { StrongholdBase } from "./types"
 import { revalidatePath } from "next/cache"
 
-export async function createEvent(formData: FormData) {
-  const warzone = Number.parseInt(formData.get("warzone") as string)
-  const coordinate_x = Number.parseInt(formData.get("coordinate_x") as string)
-  const coordinate_y = Number.parseInt(formData.get("coordinate_y") as string)
-  const duration_days = Number.parseInt(formData.get("duration_days") as string) || 0
-  const duration_hours = Number.parseInt(formData.get("duration_hours") as string) || 0
-  const duration_minutes = Number.parseInt(formData.get("duration_minutes") as string) || 0
-  const duration_seconds = Number.parseInt(formData.get("duration_seconds") as string) || 0
-
-  if (isNaN(warzone) || isNaN(coordinate_x) || isNaN(coordinate_y)) {
-    throw new Error("Invalid input: Warzone and coordinates must be valid integers")
-  }
-
-  const newEvent: NewEvent = {
-    warzone,
-    coordinate_x,
-    coordinate_y,
-    duration_days,
-    duration_hours,
-    duration_minutes,
-    duration_seconds,
-  }
-
+export async function createStronghold(newStronghold: StrongholdBase) {
   try {
-    await addEvent(newEvent)
+    await addStronghold(newStronghold)
     revalidatePath("/")
     return { success: true }
   } catch (error) {
-    console.error("Error creating event:", error)
-    throw new Error("Failed to create event")
+    console.error("Error creating stronghold:", error)
+    throw new Error("Failed to create stronghold")
   }
 }
 
-export async function removeEvent(id: string) {
+export async function removeStronghold(id: string) {
   try {
-    const success = await deleteEvent(id)
+    const success = await deleteStronghold(id)
     if (success) {
       revalidatePath("/")
       return { success: true }
     } else {
-      throw new Error("Event not found")
+      throw new Error("Stronghold not found")
     }
   } catch (error) {
-    console.error("Error deleting event:", error)
-    throw new Error("Failed to delete event")
+    console.error("Error deleting stronghold:", error)
+    throw new Error("Failed to delete stronghold")
   }
 }
 
-export async function getEvents() {
+export async function getStrongholds() {
   try {
-    return await getAllEvents()
+    return await getAllStrongholds()
   } catch (error) {
-    console.error("Error fetching events:", error)
+    console.error("Error fetching strongholds:", error)
     return []
   }
 }
 
-export async function resetEventAction(id: string) {
+export async function resetStrongholdTimerAction(id: string) {
   try {
-    const success = await resetEvent(id)
+    const success = await resetStrongholdTimer(id)
     if (success) {
       revalidatePath("/")
       return { success: true }
     } else {
-      throw new Error("Event not found")
+      throw new Error("Stronghold not found")
     }
   } catch (error) {
-    console.error("Error resetting event:", error)
-    throw new Error("Failed to reset event")
+    console.error("Error resetting stronghold:", error)
+    throw new Error("Failed to reset stronghold")
   }
 }
 
-export async function updateEventDurationAction(
+export async function updateStrongholdDurationAction(
   id: string,
   duration_days: number,
   duration_hours: number,
@@ -83,15 +62,34 @@ export async function updateEventDurationAction(
   duration_seconds: number
 ) {
   try {
-    const success = await updateEventDuration(id, duration_days, duration_hours, duration_minutes, duration_seconds)
+    const success = await updateStrongholdDuration(id, duration_days, duration_hours, duration_minutes, duration_seconds)
     if (success) {
       revalidatePath("/")
       return { success: true }
     } else {
-      throw new Error("Event not found")
+      throw new Error("Stronghold not found")
     }
   } catch (error) {
-    console.error("Error updating event duration:", error)
-    throw new Error("Failed to update event duration")
+    console.error("Error updating stronghold duration:", error)
+    throw new Error("Failed to update stronghold duration")
+  }
+}
+
+export async function updateStrongholdAction(
+  id: string,
+  alliance_name?: string,
+  level?: number
+) {
+  try {
+    const success = await updateStronghold(id, alliance_name, level)
+    if (success) {
+      revalidatePath("/")
+      return { success: true }
+    } else {
+      throw new Error("Stronghold not found")
+    }
+  } catch (error) {
+    console.error("Error updating stronghold details:", error)
+    throw new Error("Failed to update stronghold details")
   }
 }

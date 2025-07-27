@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis'
+import { Stronghold, StrongholdBase } from './types'
 
 // Initialize Redis client
 const redis = new Redis({
@@ -6,128 +7,105 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 })
 
-export interface Event {
-  id: string
-  warzone: number
-  coordinate_x: number
-  coordinate_y: number
-  duration_days: number
-  duration_hours: number
-  duration_minutes: number
-  duration_seconds: number
-  created_at: string
-  ready_at: string
-}
-
-export interface NewEvent {
-  warzone: number
-  coordinate_x: number
-  coordinate_y: number
-  duration_days: number
-  duration_hours: number
-  duration_minutes: number
-  duration_seconds: number
-}
-
 // Redis key constants
-const EVENTS_KEY = 'events'
+const LIST_KEY = 'events'
+const DATA_PREFIX = 'event'
 
-export async function getAllEvents(): Promise<Event[]> {
+export async function getAllStrongholds(): Promise<Stronghold[]> {
   try {
-    const eventIds = await redis.zrange(EVENTS_KEY, 0, -1) as string[]
-    if (eventIds.length === 0) {
+    const strongholdIds = await redis.zrange(LIST_KEY, 0, -1) as string[]
+    if (strongholdIds.length === 0) {
       return []
     }
 
-    const events = await Promise.all(
-      eventIds.map(async (id: string) => {
-        const eventData = await redis.hgetall(`event:${id}`)
-        return eventData as unknown as Event
+    const strongholds = await Promise.all(
+      strongholdIds.map(async (id: string) => {
+        const strongholdData = await redis.hgetall(`${DATA_PREFIX}:${id}`)
+        return strongholdData as unknown as Stronghold
       })
     )
 
     // Sort by ready_at timestamp
-    return events.sort((a: Event, b: Event) => new Date(a.ready_at).getTime() - new Date(b.ready_at).getTime())
+    return strongholds.sort((a: Stronghold, b: Stronghold) => new Date(a.ready_at).getTime() - new Date(b.ready_at).getTime())
   } catch (error) {
-    console.error('Failed to get all events:', error)
+    console.error('Failed to get all strongholds:', error)
     return []
   }
 }
 
-export async function addEvent(event: NewEvent): Promise<Event> {
+export async function addStronghold(stronghold: StrongholdBase): Promise<Stronghold> {
   try {
     const now = new Date()
     const readyAt = new Date(now)
 
     // Calculate ready time
-    readyAt.setDate(readyAt.getDate() + event.duration_days)
-    readyAt.setHours(readyAt.getHours() + event.duration_hours)
-    readyAt.setMinutes(readyAt.getMinutes() + event.duration_minutes)
-    readyAt.setSeconds(readyAt.getSeconds() + event.duration_seconds)
+    readyAt.setDate(readyAt.getDate() + stronghold.duration_days)
+    readyAt.setHours(readyAt.getHours() + stronghold.duration_hours)
+    readyAt.setMinutes(readyAt.getMinutes() + stronghold.duration_minutes)
+    readyAt.setSeconds(readyAt.getSeconds() + stronghold.duration_seconds)
 
     // Generate composite key from warzone and coordinates
-    const eventId = `${event.warzone}:${event.coordinate_x}:${event.coordinate_y}`
+    const strongholdId = `${stronghold.warzone}:${stronghold.coordinate_x}:${stronghold.coordinate_y}`
 
-    const newEvent: Event = {
-      id: eventId,
-      warzone: event.warzone,
-      coordinate_x: event.coordinate_x,
-      coordinate_y: event.coordinate_y,
-      duration_days: event.duration_days,
-      duration_hours: event.duration_hours,
-      duration_minutes: event.duration_minutes,
-      duration_seconds: event.duration_seconds,
+    const newStronghold: Stronghold = {
+      id: strongholdId,
+      warzone: stronghold.warzone,
+      coordinate_x: stronghold.coordinate_x,
+      coordinate_y: stronghold.coordinate_y,
+      duration_days: stronghold.duration_days,
+      duration_hours: stronghold.duration_hours,
+      duration_minutes: stronghold.duration_minutes,
+      duration_seconds: stronghold.duration_seconds,
+      level: stronghold.level,
+      alliance_name: stronghold.alliance_name,
       created_at: now.toISOString(),
       ready_at: readyAt.toISOString(),
     }
 
-    // Store event data in hash
-    await redis.hset(`event:${eventId}`, newEvent as unknown as Record<string, unknown>)
-    
+    // Store stronghold data in hash
+    await redis.hset(`${DATA_PREFIX}:${strongholdId}`, newStronghold as unknown as Record<string, unknown>)
+
     // Add to sorted set for ordering by ready_at
-    await redis.zadd(EVENTS_KEY, {
+    await redis.zadd(LIST_KEY, {
       score: readyAt.getTime(),
-      member: eventId
+      member: strongholdId
     })
 
-    return newEvent
+    return newStronghold
   } catch (error) {
-    console.error('Failed to add event:', error)
+    console.error('Failed to add stronghold:', error)
     throw error
   }
 }
 
-export async function deleteEvent(id: string): Promise<boolean> {
+export async function deleteStronghold(id: string): Promise<boolean> {
   try {
-    // Remove from sorted set
-    const removedFromSet = await redis.zrem(EVENTS_KEY, id)
-    
-    // Remove event data
-    const removedData = await redis.del(`event:${id}`)
-    
+    // Remove from sorted set and remove data
+    const removedFromSet = await redis.zrem(LIST_KEY, id)
+    const removedData = await redis.del(`${DATA_PREFIX}:${id}`)
+
     return removedFromSet > 0 || removedData > 0
   } catch (error) {
-    console.error('Failed to delete event:', error)
+    console.error('Failed to delete stronghold:', error)
     return false
   }
 }
 
-export async function updateEventDuration(
-  id: string, 
-  duration_days: number, 
-  duration_hours: number, 
-  duration_minutes: number, 
+export async function updateStrongholdDuration(
+  id: string,
+  duration_days: number,
+  duration_hours: number,
+  duration_minutes: number,
   duration_seconds: number
 ): Promise<boolean> {
   try {
-    // Get existing event data
-    const eventData = await redis.hgetall(`event:${id}`) as unknown as Event
-    if (!eventData) {
+    const strongholdData = await redis.hgetall(`${DATA_PREFIX}:${id}`) as unknown as Stronghold
+    if (!strongholdData) {
       return false
     }
 
     // Calculate new ready_at time based on created_at and new duration
-    const createdAt =  new Date() //new Date(eventData.created_at)
+    const createdAt = new Date() //new Date(eventData.created_at)
     const newReadyAt = new Date(createdAt)
 
     // Add the new duration to the created_at time
@@ -136,9 +114,9 @@ export async function updateEventDuration(
     newReadyAt.setMinutes(newReadyAt.getMinutes() + duration_minutes)
     newReadyAt.setSeconds(newReadyAt.getSeconds() + duration_seconds)
 
-    // Update event with new duration and ready_at
-    const updatedEvent: Event = {
-      ...eventData,
+    // Update stronghold with new duration and ready_at
+    const updatedStronghold: Stronghold = {
+      ...strongholdData,
       duration_days,
       duration_hours,
       duration_minutes,
@@ -146,28 +124,58 @@ export async function updateEventDuration(
       ready_at: newReadyAt.toISOString(),
     }
 
-    // Update event data in hash
-    await redis.hset(`event:${id}`, updatedEvent as unknown as Record<string, unknown>)
-    
+    await redis.hset(`${DATA_PREFIX}:${id}`, updatedStronghold as unknown as Record<string, unknown>)
+
     // Update sorted set with new ready_at timestamp
-    await redis.zadd(EVENTS_KEY, {
+    await redis.zadd(LIST_KEY, {
       score: newReadyAt.getTime(),
       member: id
     })
 
     return true
   } catch (error) {
-    console.error('Failed to update event duration:', error)
+    console.error('Failed to update stronghold duration:', error)
     return false
   }
 }
 
-export async function resetEvent(id: string): Promise<boolean> {
+export async function resetStrongholdTimer(id: string): Promise<boolean> {
   try {
-    // Update the event duration by 36 hours (1 day and 12 hours)
-    return await updateEventDuration(id, 1, 12, 0, 0)
+    // Update the stronghold duration by 36 hours (1 day and 12 hours)
+    return await updateStrongholdDuration(id, 1, 12, 0, 0)
   } catch (error) {
-    console.error('Failed to reset event:', error)
+    console.error('Failed to reset stronghold:', error)
+    return false
+  }
+}
+
+export async function updateStronghold(
+  id: string,
+  alliance_name?: string,
+  level?: number
+): Promise<boolean> {
+  try {
+    const strongholdData = await redis.hgetall(`${DATA_PREFIX}:${id}`) as unknown as Stronghold
+    if (!strongholdData) {
+      return false
+    }
+
+    // Level is not allowed to be updated
+    if (strongholdData.level) {
+      level = strongholdData.level
+    }
+
+    const updatedStronghold: Stronghold = {
+      ...strongholdData,
+      alliance_name,
+      level,
+    }
+
+    await redis.hset(`${DATA_PREFIX}:${id}`, updatedStronghold as unknown as Record<string, unknown>)
+
+    return true
+  } catch (error) {
+    console.error('Failed to update stronghold details:', error)
     return false
   }
 }
